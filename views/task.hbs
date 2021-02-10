@@ -1,0 +1,98 @@
+<div>
+    <div class="row">
+        <div class="col m8">
+            <textarea id="code-screen"></textarea>
+        </div>
+        <div class="col m4" id="chatbox">
+            <div class="card blue-grey darken-1 white-text">
+                <div class="card-title white-text">
+                    <div id="chatbox-username">
+                        {{#if user}}
+                            {{user.name}}
+                        {{/if}}
+                    </div>
+                </div>
+                <div class="card-content white-text">
+                    <ul class="media-list" style="height: 300px; overflow-y: scroll;" id="chatbox-listMessages">
+
+                    </ul>
+                </div>
+                <div class="card-action">
+                    <div class="input-group">
+                        <input type="text" class="form-control white-text" placeholder="Enter message..." id="userMessage">
+                        <span class="input-group-btn">
+                            <button class="btn btn-primary">
+                                SEND
+                            </button>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<input type="hidden" value="{{roomId}}" id="roomId">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.59.2/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.59.2/mode/javascript/javascript.min.js"></script>
+<script src="/plugins/ot/ot.js"></script>
+
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+    let EditorClient = ot.EditorClient;
+    let SocketIOAdapter = ot.SocketIOAdapter;
+    let CodeMirrorAdapter = ot.CodeMirrorAdapter;
+
+    let button = document.getElementsByClassName('btn');
+    
+    let socket = io.connect('http://localhost:3000');
+    let editor = CodeMirror.fromTextArea(document.getElementById('code-screen'), {
+        lineNumbers: true,
+        theme: 'material'
+    })
+
+    let cmClient;
+    function init(str, revision, clients, serverAdapter) {
+        editor.setValue(str);
+        cmClient = window.cmClient = new EditorClient(
+            revision, clients, serverAdapter, new CodeMirrorAdapter(editor)
+        )
+    }
+
+    socket.on('doc', function(data) {
+        init(data.str, data.revision, data.clients, new SocketIOAdapter(socket));
+    })
+
+    let userName = $('#chatbox-username').val();
+    if(userName === '') {
+        let userId = Math.floor(1000 + Math.random() * 9000).toString();
+        userName = 'User' + userId;
+        $('#chatbox-username').text(userName);
+    }
+
+    let roomId = $('#roomId').val();
+    socket.emit('joinRoom', {room: roomId, userName})
+
+    let userMessage = (name, text) => {
+      
+        return ('<li class="media"> <div class="media-body"> <div class="media">' +'<div class="media-body"/>' +'<b>' + name + '</b> : ' + text +'<hr/> </div> </div> </div> </li>')
+    }
+
+    let sendMessage = () => {
+        console.log('asspen')
+        let userMessage = $('#userMessage').val();
+        socket.emit('chatMessage', {
+            message: userMessage,
+            userName
+        })
+        $('#userMessage').val('');
+    }
+
+    socket.on('chatMessage', data => {
+        console.log(data)
+        $('#chatbox-listMessages').append(userMessage(data.userName, data.message))
+    })
+    $('.btn').on('click', sendMessage);
+</script>
